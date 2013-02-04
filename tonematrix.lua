@@ -1,76 +1,92 @@
-
+--[[
+bugs
+1. more than 10 toggle will make the patch.  crash. 
+]]
 
 SetPage(2);
 FreeAllRegions();
 FreeAllFlowboxes()
---[[
-drum = nil
-fbPush:RemovePushLink(0,fbSinOsc, 0) ;
-fbZpulse:RemovePullLink(0,fbSinOsc,0);
-dac:RemovePullLink(0,fbZpulse,0)
-dac:RemovePullLink(0,drum,0)
-drumAmpPush:RemovePushLink(0,drum,0)
-drumRatePush:RemovePushLink(0,drum,1)
-drumPosPush:RemovePushLink(0,drum,2)
-drumSampPush:RemovePushLink(0,drum,3)
-drumLoopPush:RemovePushLink(0,drum,4)
-SetPage(2);
-FreeAllRegions();
-]]
-dac = FBDac
-push = FlowBox(FBPush)
---accel = FlowBox(FBAccel)
-sinosc = FlowBox(FBSinOsc)
-
---accel.X:SetPush(sinosc.Freq)
-zPulse = FlowBox(FBZPuls)
-push.Out:SetPush(sinosc.Freq)  
-zPulse.In:SetPull(sinosc.Out);
-dac.In:SetPull(zPulse.Out)
 
 
 local log = math.log
-freqHz = 0.5
-freq = 12.0/96.0*log(freqHz/55)/log(2)
+local pow = math.pow 
 
-push:Push(freq);
+function freq2Norm(freqHz)
+	return 12.0/96.0*log(freqHz/55)/log(2)
+end
 
-drum = FlowBox(FBSample)
-drumAmpPush = FlowBox(FBPush)
-drumRatePush = FlowBox(FBPush)
-drumPosPush = FlowBox(FBPush)
-drumSampPush = FlowBox(FBPush)
-drumLoopPush = FlowBox(FBPush)
-drum:AddFile("Clap.wav")
-drum:AddFile("ClosedHat.wav")
-drum:AddFile("sine.wav")
-drum:AddFile("square.wav")
-drum:AddFile("Scratch.wav")
+function noteNum2Freq(num)
+	return pow(2,(num-57)/12) * 440 
+end
 
-drumAmpPush:SetPushLink(0,drum,0)
-drumRatePush:SetPushLink(0,drum,1)
-drumPosPush:SetPushLink(0,drum,2)
-drumSampPush:SetPushLink(0,drum,3)
-drumLoopPush:SetPushLink(0,drum,4)
-
-dac:SetPullLink(0,drum,0)
-
-drumAmpPush:Push(0.8)
-drumRatePush:Push(0.5)
-drumPosPush:Push(1.0)
-drumSampPush:Push(0.0)
-drumLoopPush:Push(0.0)
 
 n = Region()
+
+n.freq = freq2Norm(0.5)
+n.rowNum = 7
+n.colNum = 8
+
+n.baseNum = 65
+--			1	2	3	4	5	6	7	8	9	10	11	12	13
+n.notes = {	0,	2,	4,	5,	7,	9,	11}
+
+n.noteNames = { "C","C#","D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
+
+
+dac = FBDac
+pAsymTarget = {}
+pFreq = {}
+pAsymTau = {}
+asymp = {}
+sinosc = {}
+n.polyPhonyNum = 2
+for i=0,n.polyPhonyNum do
+	pAsymTarget[i] = {}
+	pAsymTau[i] = {}
+	pFreq[i] = {}
+	asymp[i] = {}
+	sinosc[i] = {}
+	
+end
+
+
+function buildATone(i,j)
+	pAsymTarget[i][j] = FlowBox(FBPush)
+	pAsymTau[i][j] = FlowBox(FBPush)
+	asymp[i][j] = FlowBox(FBAsymp)
+	pFreq[i][j] = FlowBox(FBPush)
+	sinosc[i][j]= FlowBox(FBSinOsc)
+	sinosc[i][j].Amp:SetPull(asymp[i][j].Out)
+	pAsymTarget[i][j].Out:SetPush(asymp[i][j].In)
+	pAsymTau[i][j].Out:SetPush(asymp[i][j].Tau)
+	pFreq[i][j].Out:SetPush(sinosc[i][j].Freq)
+	pAsymTarget[i][j]:Push(0)
+	pAsymTau[i][j]:Push(0)
+	dac.In:SetPull(sinosc[i][j].Out)
+end
+
+function setFreq(i,j,noteNum)	
+	pFreq[i][j]:Push(freq2Norm(noteNum2Freq(noteNum)))
+end
+
+function play(i,j)
+	r.t:SetSolidColor(0,255,0,255)
+end
+
+function stop(i,j)
+	r.t:SetSolidColor(255,0,0,255)
+	--	pAsymTarget[i][j]:Push(0)
+	--	pAsymTau[i][j]:Push(-0.5);
+end
+
 n.buttons = {}
+n.labels = {}
 n.swidth = ScreenWidth()
 n.sheight = ScreenHeight();
-
-n.rowNum = 10
-n.colNum = 10
+n.offset = 50
 n.margin = 10
 n.bpm =120
-n.minLength = math.min(n.swidth/n.colNum, n.sheight/n.rowNum)
+n.minLength = math.min((n.swidth- n.offset)/n.colNum, n.sheight/n.rowNum)
 n.numSize =  n.minLength - n.margin/2;
 n.time = math.ceil(Time())+1;
 n.interval =  1/(n.bpm/60)
@@ -79,76 +95,110 @@ n.currentTime = Time()
 n.avgElapsed = 0;
 n.alpha = 0.2
 n.count = 0;
-DPrint(n.time);
+
 function update(self, elapsed)
-    n.avgElapsed = n.avgElapsed * n.alpha + (1-n.alpha) * elapsed;
-    n.currentTime = Time()
-    if n.currentTime >= n.nextTickTime - n.avgElapsed/2 then
-        n.count = (n.count+1) % n.colNum
-      --  DPrint(n.currentTime.." elapsed: "..n.avgElapsed)
-        while n.currentTime >= n.nextTickTime - n.avgElapsed/2 do
-            n.nextTickTime  = n.nextTickTime + n.interval
-        end
-        n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.count * (n.numSize + n.margin/2),n.margin/2)
-        for i=0, n.colNum-1 do
-            if(n.buttons[i][n.count].toggle) then
-                DPrint("Boom("..i..","..n.count..") in ".. n.colNum .. " so "..(i/(n.colNum)*2-1));
---                drumSampPush:Push((i/(n.colNum)*2-1))
-                drumSampPush:Push(0)
-                drumPosPush:Push(0) 
-            end
-        end           
-        
-    end
-    
+	local totalNoteNum=0
+	n.avgElapsed = n.avgElapsed * n.alpha + (1-n.alpha) * elapsed;
+	n.currentTime = Time()
+	if n.currentTime >= n.nextTickTime - n.avgElapsed/2 then
+		n.count = ((n.count+1) % n.colNum) 
+		if n.count== 0 then
+			n.count = n.colNum
+		end
+		while n.currentTime >= n.nextTickTime - n.avgElapsed/2 do
+			n.nextTickTime  = n.nextTickTime + n.interval
+		end
+		n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + (n.count-1) * (n.numSize + n.margin/2),n.margin/2)
+		for i=1, n.rowNum do
+			if(n.buttons[i][n.count].toggle) then
+				totalNoteNum = totalNoteNum+1;
+				
+				if table.getn(sinosc[n.count%n.polyPhonyNum]) < totalNoteNum then
+					buildATone(n.count%n.polyPhonyNum, totalNoteNum)
+				end
+				setFreq(n.count%n.polyPhonyNum, totalNoteNum, n.notes[i] + n.baseNum)
+			end
+			
+		end   
+		
+		for k=1, table.getn(pAsymTau[(n.count+1)%n.polyPhonyNum]) do
+			pAsymTau[(n.count+1)%n.polyPhonyNum][k]:Push(-0.2);
+			pAsymTarget[(n.count+1)%n.polyPhonyNum][k]:Push(0)
+		end	
+		for k=1, totalNoteNum do
+			pAsymTau[n.count%n.polyPhonyNum][k]:Push(-0.8);
+			pAsymTarget[n.count%n.polyPhonyNum][k]:Push(1)
+		end	
+		
+	end
+	
 end
 
 n:Handle("OnUpdate", update)
-for i=0,n.rowNum-1 do
-    n.buttons[i] = {}
+for i=1,n.rowNum do
+	n.buttons[i] = {}
 end
 
 function buttonPressed(self)
-    DPrint(self.row..","..self.col.." pressed")
+	DPrint(self.row..","..self.col.." pressed")
 end
 
 function toggleButton(self)
-    self.toggle = not self.toggle
-    if(self.toggle) then
-        self.t = self:Texture(200,200,255,255)
-    else
-        self.t = self:Texture(220,200,200,255)
-    end
-    
+	self.toggle = not self.toggle
+	if(self.toggle) then
+		self.t = self:Texture(200,200,255,255)
+	else
+		self.t = self:Texture(220,200,200,255)
+	end
+	
+end
+
+function createNoteName(i)
+	local newregion = Region()
+	newregion:SetWidth(n.offset - n.margin/2 )
+	newregion:SetHeight(n.numSize )
+	newregion.tl = newregion:TextLabel()
+	local noteNum = n.baseNum + n.notes[i];
+	DPrint(i..","..noteNum..".."..n.noteNames[noteNum%12 + 1])
+	newregion.tl:SetLabel(n.noteNames[noteNum%12 + 1])
+	newregion.tl:SetFontHeight(10)
+	newregion.tl:SetColor(0,0,0,255)
+	newregion:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.margin/2 , n.margin/2 + (i-1)* n.minLength)
+	
+	newregion.t = newregion:Texture(220,200,200,255)
+	newregion:Show()
+	n.labels[i] = newregion
+	
 end
 
 function createCell(i,j)
-    --  DPrint(i..j)
-    local newregion = Region()
-    newregion:SetWidth(n.numSize )
-    newregion:SetHeight(n.numSize )
-    newregion.tl = newregion:TextLabel()
-    newregion.tl:SetLabel(i..","..j)
-    newregion.tl:SetFontHeight(10)
-    newregion.tl:SetColor(0,0,0,255)
-    
-    newregion.t = newregion:Texture(220,200,200,255)
-    newregion:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.margin/2 + j*n.minLength, n.margin/2 + i* n.minLength)
-    newregion:Show()
-    newregion:Handle("OnTouchDown",buttonPressed)
-    newregion.row = i;
-    newregion.col = j;
-    newregion:EnableInput(true)
-    newregion:Handle("OnTouchDown",toggleButton)
-    newregion.toggle = false;
-    newregion:Show()
-    n.buttons[i][j] = newregion
+	--  DPrint(i..j)
+	local newregion = Region()
+	newregion:SetWidth(n.numSize )
+	newregion:SetHeight(n.numSize )
+	newregion.tl = newregion:TextLabel()
+	newregion.tl:SetLabel(i..","..j)
+	newregion.tl:SetFontHeight(10)
+	newregion.tl:SetColor(0,0,0,255)
+	
+	newregion.t = newregion:Texture(220,200,200,255)
+	newregion:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.offset+ n.margin/2 + (j-1)*n.minLength, n.margin/2 + (i-1)* n.minLength)
+	newregion:Show()
+	newregion:Handle("OnTouchDown",buttonPressed)
+	newregion.row = i;
+	newregion.col = j;
+	newregion:EnableInput(true)
+	newregion:Handle("OnTouchDown",toggleButton)
+	newregion.toggle = false;
+	newregion:Show()
+	n.buttons[i][j] = newregion
 end
 
-for i=0,(n.rowNum-1) do
-    for j=0, n.colNum-1 do
-        createCell(i,j)
-    end
+for i=1,n.rowNum do
+	for j=1, n.colNum do
+		createCell(i,j)
+	end
+	createNoteName(i)
 end
 
 n.playBar = Region()
@@ -164,5 +214,5 @@ r,g,b,a = n.playBar.t:SolidColor()
 --n.playBar.t:SetTexture(255,80,10,10)
 n.playBar:SetAlpha(50)
 
-n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.margin/2,n.margin/2)
+n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + n.margin/2,n.margin/2)
 n.playBar:Show()
