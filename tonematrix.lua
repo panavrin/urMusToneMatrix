@@ -1,15 +1,19 @@
 --[[
+
+
 bugs
 1. more than 10 toggle will make the patch.  crash. 
+2.
 ]]
 
 SetPage(2);
+DPrint("")
 FreeAllRegions();
 FreeAllFlowboxes()
 n = Region()
 n.notes = {	0,	2,	4,	5,	7,	9,	11,	12}
 
-
+n. color = {{0.8392,0.3137,0.2353},{0.9098,0.4314,0.2451},{0.9804,0.549,0.2549},{0.7804,0.7196,0.2529},{0.5804,0.8902,0.251},{0.1804,0.7882,0.4039},{0.2255,0.7922,0.6667},{0.2706,0.7961,0.9294},{0.3392,0.6667,0.9275},{0.4078,0.5373,0.9255},{0.5706,0.4059,0.8627},{0.7333,0.2745,0.8}}
 local log = math.log
 local pow = math.pow 
 
@@ -75,7 +79,7 @@ end
 
 function play(i,j)
 	r.t:SetSolidColor(0,255,0,255)
-
+	
 end
 
 function stop(i,j)
@@ -86,13 +90,15 @@ end
 
 n.buttons = {}
 n.labels = {}
+
+n.slideInstrument = 1
 n.swidth = ScreenWidth()
 n.sheight = ScreenHeight();
 n.offset = 50
 n.margin = 10
 n.bpm =120
 function updateSize()
-	n.minLength = math.min((n.swidth- n.offset)/n.colNum, n.sheight/n.rowNum)
+	n.minLength = math.min((n.swidth- n.offset)/(n.colNum+n.slideInstrument), n.sheight/n.rowNum)
 	n.numSize =  n.minLength - n.margin/2;
 end
 updateSize()
@@ -118,7 +124,7 @@ function update(self, elapsed)
 			n.nextTickTime  = n.nextTickTime + n.interval
 		end
 		--	SendOSCMessage(n.host,n.post,"/urMus/numbers",1,2)
-		n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + (n.count-1) * (n.numSize + n.margin/2),n.margin/2)
+		n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + n.margin/2+ (n.count-1) * (n.numSize + n.margin/2),n.margin/2)
 		for i=1, n.rowNum do
 			if(n.buttons[i][n.count].toggle) then
 				totalNoteNum = totalNoteNum+1;
@@ -130,7 +136,7 @@ function update(self, elapsed)
 			end
 			
 		end   
-		DPrint("totalNum:"..totalNoteNum);
+		--		DPrint("totalNum:"..totalNoteNum);
 		for k=1, table.getn(pAsymTau[(n.count+1)%n.polyPhonyNum]) do
 			pAsymTau[(n.count+1)%n.polyPhonyNum][k]:Push(-0.2);
 			pAsymTarget[(n.count+1)%n.polyPhonyNum][k]:Push(0)
@@ -152,43 +158,50 @@ end
 function toggleButton(self)
 	SendOSCMessage(n.host,n.post,"/urMus/numbers",0,self.row, self.col)
 	self.toggle = not self.toggle
-		DPrint(self.row..","..self.col.." pressed")
-
+	--	DPrint(self.row..","..self.col.." pressed")
+	
 	drawCell(self)
+end
+
+function updateNoteName(i)
+	local noteNum = (n.baseNum + n.notes[i])%12+1
+	n.labels[i].t = n.labels[i]:Texture(n.color[noteNum][1]*150,n.color[noteNum][2]*150,n.color[noteNum][3]*150,255)
+	n.labels[i].tl:SetLabel(n.noteNames[noteNum]..math.floor((n.baseNum + n.notes[i])/12))
 end
 
 function createNoteName(i)
 	local newregion = Region()
 	newregion:SetWidth(n.offset - n.margin/2 )
 	newregion.tl = newregion:TextLabel()
-	local noteNum = n.baseNum + n.notes[i];
-	--	DPrint(i..","..noteNum..".."..n.noteNames[noteNum%12 + 1])
-	newregion.tl:SetLabel(n.noteNames[noteNum%12 + 1])
+	
 	newregion.tl:SetFontHeight(20)
 	newregion.tl:SetColor(0,0,0,255)
 	newregion:SetHeight(n.numSize )
 	newregion:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.margin/2 , n.margin/2 + (i-1)* n.minLength)
 	
-	newregion.t = newregion:Texture(220,200,200,255)
 	newregion:Show()
-		newregion:SetLayer("LOW")
+	newregion:SetLayer("LOW")
 	if n.labels[i] then
 		n.labels[i] = nil;
 	end
 	n.labels[i] = newregion
-
-
+	updateNoteName(i)
+	
+	
 end
 
 function drawCell(self)
+	local noteNum = (n.baseNum + n.notes[self.row])%12+1
+	
 	self:SetWidth(n.numSize )
 	self:SetHeight(n.numSize )
-	self.tl:SetLabel(self.row..","..self.col)
-
+	--	self.tl:SetLabel(self.row..","..self.col)
+	
 	if(self.toggle) then
-		self.t = self:Texture(200,200,255,255)
+		self.t = self:Texture(n.color[noteNum][1]*240,n.color[noteNum][2]*240,n.color[noteNum][3]*240,255)
 	else
-		self.t = self:Texture(220,200,200,255)
+		self.t = self:Texture(n.color[noteNum][1]*120,n.color[noteNum][2]*120,n.color[noteNum][3]*120,150)
+		
 	end
 	self:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.offset+ n.margin/2 + (self.col-1)*n.minLength, n.margin/2 + (self.row-1)* n.minLength)
 end
@@ -203,7 +216,7 @@ function createCell(i,j)
 	newregion.tl:SetColor(0,0,0,255)
 	newregion.row = i;
 	newregion.col = j;
-
+	
 	newregion:EnableInput(true)
 	newregion:Handle("OnTouchDown",toggleButton)
 	newregion.toggle = false;
@@ -224,12 +237,11 @@ for i=1,n.rowNum do
 end
 
 n.playBar = Region()
-
-n.playBar:SetWidth(n.numSize + n.margin/2)
-n.playBar:SetHeight((n.numSize + n.margin/2) * n.rowNum)
+n.playBar:SetWidth(n.numSize)
+n.playBar:SetHeight((n.numSize + n.margin/2) * n.rowNum- n.margin/2)
 --n.playBar.t = n.playBar:Texture(100,0,0,0)
 
-n.playBar.t = n.playBar:Texture(100,0,0,100)
+n.playBar.t = n.playBar:Texture(255,255,255,100)
 n.playBar.t:SetBlendMode("BLEND")
 r,g,b,a = n.playBar.t:SolidColor()
 
@@ -240,17 +252,69 @@ n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + n.margin/2,n.m
 n.playBar:Show()
 
 
-function updateNoteName(i)
-	n.labels[i].tl:SetLabel(n.noteNames[(n.baseNum + n.notes[i])%12 + 1])
+function sliderTouchUp(self)
+	DPrint("touchUp")
 end
 
+function sliderMoved(self,x,y,dx,dy)
+	DPrint("OnMove"..x..","..y..","..dx..","..dy..","..n.sheight)
+	self.t:Clear(150,150,100,255)
+
+    self.t:Line(5,y*1024/self:Height(),n.numSize,y*1024/self:Height())
+
+--	self:SetAnchor("BOTTOMLEFT", UIParent, "BOTTOMLEFT", n.offset + n.minLength*n.colNum+ n.margin/2, y+dy)---self:Height()/2)
+end
+
+function sliderTouchDown(self)
+	DPrint("touchDown")
+end
+
+if n.slideInstrument ==1 then
+	n.slider = Region()
+	n.slider:SetWidth(n.numSize)
+	n.slider:SetHeight((n.numSize *10))--+ n.margin/2) * n.rowNum- n.margin/2)
+	n.slider.t = n.slider:Texture(255,255,255,200)
+	n.slider:SetAnchor("BOTTOMLEFT", UIParent, "BOTTOMLEFT", n.offset + n.minLength*n.colNum+ n.margin/2, n.margin/2)
+	n.slider:Show()
+--	n.slider:EnableMoving(true)
+	n.slider:EnableInput(true)
+	n.slider:Handle("OnTouchUp",sliderTouchUp)
+	n.slider:Handle("OnMove", sliderMoved)
+	n.slider:Handle("OnTouchDown",sliderTouchDown)
+	n.slider.t:SetBrushColor(255,0,0,255)
+	n.slider.t:SetBrushSize(3)
+    
+--[[	n.cursor = Region()
+	n.cursor:SetWidth(n.numSize)
+	n.cursor:SetHeight(n.numSize)
+	n.cursor.t = n.cursor:Texture(255,0,255,200)
+	n.cursor:SetAnchor("CENTER", n.slider, "CENTER", 0,0)
+	n.cursor:Show()
+	n.cursor:EnableMoving(true)
+	n.cursor:EnableInput(true)
+	n.cursor:Handle("OnTouchUp",sliderTouchUp)
+	n.cursor:Handle("OnMove", sliderMoved)
+	n.cursor:Handle("OnTouchDown",sliderTouchDown)
+]]
+end
+
+
+
+function drawKeys()
+	for i=1,n.rowNum do
+		updateNoteName(i)
+		for j=1,n.colNum do
+			drawCell(n.buttons[i][j])
+		end
+	end
+end
 function insertRow(i)
 	n.rowNum = n.rowNum +1
 	
 	local numRow
 	for numRow = n.rowNum ,i+1,-1  do
 		n.buttons[numRow] = n.buttons[numRow-1]
-		DPrint("numRow:"..numRow.."/i:"..i);
+		--DPrint("numRow:"..numRow.."/i:"..i);
 		
 		for j=1,n.colNum do
 			n.buttons[numRow][j].row = n.buttons[numRow][j].row +1
@@ -270,13 +334,26 @@ function insertRow(i)
 	end
 	
 	createNoteName(i)
-	n.playBar:SetHeight((n.numSize + n.margin/2) * n.rowNum)
+	n.playBar:SetHeight((n.numSize + n.margin/2) * n.rowNum- n.margin/2)
 	n.playBar:SetLayer("HIGH")
 	n.playBar:Show()
 	
-	for i=1,n.rowNum do
-		updateNoteName(i)
-	end
+	drawKeys()
 	
-	
+end
+
+function putMsg(msg, pushfunction)
+	newregion = Region()
+	newregion:SetWidth(200)
+	newregion:SetHeight(50 )
+	newregion.tl = newregion:TextLabel()
+	newregion.tl:SetFontHeight(30)
+	newregion.tl:SetColor(100,100,100,255)
+	newregion.tl:SetLabel(msg)
+	newregion:EnableInput(true)
+	newregion:Handle("OnTouchDown",pushfunction)
+	newregion.toggle = false;
+	newregion:Show()
+	newregion.t = newregion:Texture(255,255,255,255)
+	newregion:SetAnchor("CENTER",UIParent,"CENTER", 0,400)
 end
