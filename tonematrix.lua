@@ -3,7 +3,7 @@
 
 bugs
 1. more than 10 toggle will make the patch.  crash. 
-2.
+2. once registered for handle I can't access by function name
 ]]
 
 SetPage(2);
