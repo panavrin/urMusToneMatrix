@@ -22,6 +22,10 @@ end
 
 n = Region()
 
+n.host = "67.194.194.117"
+n.post = 8888
+
+
 n.freq = freq2Norm(0.5)
 n.rowNum = 7
 n.colNum = 8
@@ -105,9 +109,11 @@ function update(self, elapsed)
 		if n.count== 0 then
 			n.count = n.colNum
 		end
+		
 		while n.currentTime >= n.nextTickTime - n.avgElapsed/2 do
 			n.nextTickTime  = n.nextTickTime + n.interval
 		end
+		--	SendOSCMessage(n.host,n.post,"/urMus/numbers",1,2)
 		n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + (n.count-1) * (n.numSize + n.margin/2),n.margin/2)
 		for i=1, n.rowNum do
 			if(n.buttons[i][n.count].toggle) then
@@ -139,17 +145,10 @@ for i=1,n.rowNum do
 	n.buttons[i] = {}
 end
 
-function buttonPressed(self)
-	DPrint(self.row..","..self.col.." pressed")
-end
-
 function toggleButton(self)
+	SendOSCMessage(n.host,n.post,"/urMus/numbers",0,self.row, self.col)
 	self.toggle = not self.toggle
-	if(self.toggle) then
-		self.t = self:Texture(200,200,255,255)
-	else
-		self.t = self:Texture(220,200,200,255)
-	end
+	drawCell(self)
 	
 end
 
@@ -159,7 +158,7 @@ function createNoteName(i)
 	newregion:SetHeight(n.numSize )
 	newregion.tl = newregion:TextLabel()
 	local noteNum = n.baseNum + n.notes[i];
-	DPrint(i..","..noteNum..".."..n.noteNames[noteNum%12 + 1])
+--	DPrint(i..","..noteNum..".."..n.noteNames[noteNum%12 + 1])
 	newregion.tl:SetLabel(n.noteNames[noteNum%12 + 1])
 	newregion.tl:SetFontHeight(10)
 	newregion.tl:SetColor(0,0,0,255)
@@ -171,6 +170,15 @@ function createNoteName(i)
 	
 end
 
+function drawCell(self)
+	if(self.toggle) then
+		self.t = self:Texture(200,200,255,255)
+	else
+		self.t = self:Texture(220,200,200,255)
+	end
+	self:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.offset+ n.margin/2 + (self.col-1)*n.minLength, n.margin/2 + (self.row-1)* n.minLength)
+end
+
 function createCell(i,j)
 	--  DPrint(i..j)
 	local newregion = Region()
@@ -180,16 +188,12 @@ function createCell(i,j)
 	newregion.tl:SetLabel(i..","..j)
 	newregion.tl:SetFontHeight(10)
 	newregion.tl:SetColor(0,0,0,255)
-	
-	newregion.t = newregion:Texture(220,200,200,255)
-	newregion:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.offset+ n.margin/2 + (j-1)*n.minLength, n.margin/2 + (i-1)* n.minLength)
-	newregion:Show()
-	newregion:Handle("OnTouchDown",buttonPressed)
 	newregion.row = i;
 	newregion.col = j;
 	newregion:EnableInput(true)
 	newregion:Handle("OnTouchDown",toggleButton)
 	newregion.toggle = false;
+	drawCell(newregion)
 	newregion:Show()
 	n.buttons[i][j] = newregion
 end
