@@ -6,6 +6,8 @@ bugs
 SetPage(2);
 FreeAllRegions();
 FreeAllFlowboxes()
+n = Region()
+n.notes = {	0,	2,	4,	5,	7,	9,	11,	12}
 
 
 local log = math.log
@@ -20,7 +22,6 @@ function noteNum2Freq(num)
 end
 
 
-n = Region()
 
 n.host = "67.194.194.117"
 n.post = 8888
@@ -30,9 +31,8 @@ n.freq = freq2Norm(0.5)
 n.rowNum = 7
 n.colNum = 8
 
-n.baseNum = 65
+n.baseNum = 60
 --			1	2	3	4	5	6	7	8	9	10	11	12	13
-n.notes = {	0,	2,	4,	5,	7,	9,	11}
 
 n.noteNames = { "C","C#","D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
 
@@ -75,6 +75,7 @@ end
 
 function play(i,j)
 	r.t:SetSolidColor(0,255,0,255)
+
 end
 
 function stop(i,j)
@@ -90,8 +91,11 @@ n.sheight = ScreenHeight();
 n.offset = 50
 n.margin = 10
 n.bpm =120
-n.minLength = math.min((n.swidth- n.offset)/n.colNum, n.sheight/n.rowNum)
-n.numSize =  n.minLength - n.margin/2;
+function updateSize()
+	n.minLength = math.min((n.swidth- n.offset)/n.colNum, n.sheight/n.rowNum)
+	n.numSize =  n.minLength - n.margin/2;
+end
+updateSize()
 n.time = math.ceil(Time())+1;
 n.interval =  1/(n.bpm/60)
 n.nextTickTime = n.time + n.interval;
@@ -126,7 +130,7 @@ function update(self, elapsed)
 			end
 			
 		end   
-		
+		DPrint("totalNum:"..totalNoteNum);
 		for k=1, table.getn(pAsymTau[(n.count+1)%n.polyPhonyNum]) do
 			pAsymTau[(n.count+1)%n.polyPhonyNum][k]:Push(-0.2);
 			pAsymTarget[(n.count+1)%n.polyPhonyNum][k]:Push(0)
@@ -148,29 +152,39 @@ end
 function toggleButton(self)
 	SendOSCMessage(n.host,n.post,"/urMus/numbers",0,self.row, self.col)
 	self.toggle = not self.toggle
+		DPrint(self.row..","..self.col.." pressed")
+
 	drawCell(self)
-	
 end
 
 function createNoteName(i)
 	local newregion = Region()
 	newregion:SetWidth(n.offset - n.margin/2 )
-	newregion:SetHeight(n.numSize )
 	newregion.tl = newregion:TextLabel()
 	local noteNum = n.baseNum + n.notes[i];
---	DPrint(i..","..noteNum..".."..n.noteNames[noteNum%12 + 1])
+	--	DPrint(i..","..noteNum..".."..n.noteNames[noteNum%12 + 1])
 	newregion.tl:SetLabel(n.noteNames[noteNum%12 + 1])
-	newregion.tl:SetFontHeight(10)
+	newregion.tl:SetFontHeight(20)
 	newregion.tl:SetColor(0,0,0,255)
+	newregion:SetHeight(n.numSize )
 	newregion:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.margin/2 , n.margin/2 + (i-1)* n.minLength)
 	
 	newregion.t = newregion:Texture(220,200,200,255)
 	newregion:Show()
+		newregion:SetLayer("LOW")
+	if n.labels[i] then
+		n.labels[i] = nil;
+	end
 	n.labels[i] = newregion
-	
+
+
 end
 
 function drawCell(self)
+	self:SetWidth(n.numSize )
+	self:SetHeight(n.numSize )
+	self.tl:SetLabel(self.row..","..self.col)
+
 	if(self.toggle) then
 		self.t = self:Texture(200,200,255,255)
 	else
@@ -185,16 +199,20 @@ function createCell(i,j)
 	newregion:SetWidth(n.numSize )
 	newregion:SetHeight(n.numSize )
 	newregion.tl = newregion:TextLabel()
-	newregion.tl:SetLabel(i..","..j)
 	newregion.tl:SetFontHeight(10)
 	newregion.tl:SetColor(0,0,0,255)
 	newregion.row = i;
 	newregion.col = j;
+
 	newregion:EnableInput(true)
 	newregion:Handle("OnTouchDown",toggleButton)
 	newregion.toggle = false;
 	drawCell(newregion)
 	newregion:Show()
+	if n.buttons[i][j] then
+		n.buttons[i][j] = nil;
+	end
+	
 	n.buttons[i][j] = newregion
 end
 
@@ -220,3 +238,45 @@ n.playBar:SetAlpha(50)
 
 n.playBar:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT",n.offset + n.margin/2,n.margin/2)
 n.playBar:Show()
+
+
+function updateNoteName(i)
+	n.labels[i].tl:SetLabel(n.noteNames[(n.baseNum + n.notes[i])%12 + 1])
+end
+
+function insertRow(i)
+	n.rowNum = n.rowNum +1
+	
+	local numRow
+	for numRow = n.rowNum ,i+1,-1  do
+		n.buttons[numRow] = n.buttons[numRow-1]
+		DPrint("numRow:"..numRow.."/i:"..i);
+		
+		for j=1,n.colNum do
+			n.buttons[numRow][j].row = n.buttons[numRow][j].row +1
+			drawCell(n.buttons[numRow][j])
+		end
+		n.labels[numRow] = n.labels[numRow-1]
+		n.labels[numRow]:SetHeight(n.numSize)
+		n.labels[numRow]:SetAnchor("BOTTOMLEFT",UIParent,"BOTTOMLEFT", n.margin/2 , n.margin/2 + (numRow-1)* n.minLength)
+		
+	end
+	n.buttons[i] = nil
+	n.buttons[i] = {}
+	
+	for j=1, n.colNum do
+		createCell(i,j)
+		
+	end
+	
+	createNoteName(i)
+	n.playBar:SetHeight((n.numSize + n.margin/2) * n.rowNum)
+	n.playBar:SetLayer("HIGH")
+	n.playBar:Show()
+	
+	for i=1,n.rowNum do
+		updateNoteName(i)
+	end
+	
+	
+end
