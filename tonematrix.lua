@@ -54,7 +54,6 @@ for i=0,n.polyPhonyNum do
 	pFreq[i] = {}
 	asymp[i] = {}
 	sinosc[i] = {}
-	
 end
 
 
@@ -95,6 +94,7 @@ n.slideInstrument = 1
 n.swidth = ScreenWidth()
 n.sheight = ScreenHeight();
 n.offset = 50
+
 n.margin = 10
 n.bpm =120
 function updateSize()
@@ -255,47 +255,64 @@ n.playBar:Show()
 function sliderTouchUp(self)
 	DPrint("touchUp")
 end
+local nextPower2X = 1
+local nextPower2Y = 1
 
 function sliderMoved(self,x,y,dx,dy)
-	DPrint("OnMove"..x..","..y..","..dx..","..dy..","..n.sheight)
 	self.t:Clear(150,150,100,255)
-
-    self.t:Line(5,y*1024/self:Height(),n.numSize,y*1024/self:Height())
-
---	self:SetAnchor("BOTTOMLEFT", UIParent, "BOTTOMLEFT", n.offset + n.minLength*n.colNum+ n.margin/2, y+dy)---self:Height()/2)
+	DPrint("OnMove:"..y..","..self:Height()..","..nextPower2Y)
+	
+	self.t:Line(0,y*nextPower2Y,x*nextPower2X,y*nextPower2Y)
+	
+	--	self:SetAnchor("BOTTOMLEFT", UIParent, "BOTTOMLEFT", n.offset + n.minLength*n.colNum+ n.margin/2, y+dy)---self:Height()/2)
 end
 
 function sliderTouchDown(self)
 	DPrint("touchDown")
 end
 
-if n.slideInstrument ==1 then
+function createSlider()
 	n.slider = Region()
 	n.slider:SetWidth(n.numSize)
-	n.slider:SetHeight((n.numSize *10))--+ n.margin/2) * n.rowNum- n.margin/2)
-	n.slider.t = n.slider:Texture(255,255,255,200)
+	n.slider:SetHeight((n.numSize + n.margin/2) * n.rowNum- n.margin/2)
+	n.slider.t = n.slider:Texture(150,150,100,255)
 	n.slider:SetAnchor("BOTTOMLEFT", UIParent, "BOTTOMLEFT", n.offset + n.minLength*n.colNum+ n.margin/2, n.margin/2)
 	n.slider:Show()
---	n.slider:EnableMoving(true)
+	--	n.slider:EnableMoving(true)
 	n.slider:EnableInput(true)
 	n.slider:Handle("OnTouchUp",sliderTouchUp)
 	n.slider:Handle("OnMove", sliderMoved)
 	n.slider:Handle("OnTouchDown",sliderTouchDown)
 	n.slider.t:SetBrushColor(255,0,0,255)
-	n.slider.t:SetBrushSize(3)
-    
---[[	n.cursor = Region()
+	n.slider.t:SetBrushSize(10)
+	while nextPower2Y < n.slider:Height() do
+		nextPower2Y = nextPower2Y *2
+	end
+	
+	while nextPower2X < n.slider:Height() do
+		nextPower2X = nextPower2X *2
+	end	
+	nextPower2X  = nextPower2X / n.slider:Width();
+	nextPower2Y  = nextPower2Y / n.slider:Height();
+	--[[	n.cursor = Region()
 	n.cursor:SetWidth(n.numSize)
 	n.cursor:SetHeight(n.numSize)
 	n.cursor.t = n.cursor:Texture(255,0,255,200)
 	n.cursor:SetAnchor("CENTER", n.slider, "CENTER", 0,0)
 	n.cursor:Show()
-	n.cursor:EnableMoving(true)
 	n.cursor:EnableInput(true)
-	n.cursor:Handle("OnTouchUp",sliderTouchUp)
-	n.cursor:Handle("OnMove", sliderMoved)
-	n.cursor:Handle("OnTouchDown",sliderTouchDown)
-]]
+	n.cursor:EnableHorizontalScroll(true)
+	--	n.cursor:EnableMoving(true)
+	
+	
+	--	n.cursor:Handle("OnTouchUp",sliderTouchUp)
+	n.cursor:Handle("OnHorizontalScroll", sliderMoved)
+	--	n.cursor:Handle("OnTouchDown",sliderTouchDown)
+	]]
+end
+
+if n.slideInstrument ==1 then
+	createSlider()
 end
 
 
